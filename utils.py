@@ -1,16 +1,17 @@
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import plotly.express as px
+import streamlit as st
+from millify import millify
 
 team_of_interest = "University of North Carolina Wilmington"
 opponents = "opponents"
 
 interest_team_color = "#008080"
 opponent_color = "#D48681"
-
-marker_size = 30
 shot_color = "#7A9DCF"
+marker_size = 9
+base_marker = 5
 
 tableau_colors = [
     "#4E79A7",
@@ -34,6 +35,113 @@ tableau_colors = [
     "#9D7660",
     "#D7B5A6",
 ]
+
+import numpy as np
+
+def calculate_xg(x, y, team):
+    """
+    Calculate expected goals (xG) based on shot location and target goal.
+    
+    Args:
+        x (float): x-coordinate of shot (range -52.5 to 52.5)
+        y (float): y-coordinate of shot (range -34 to 34)
+        target (str): "top" or "bottom" goal
+    
+    Returns:
+        float: xG value between 0 and 1
+    """
+    if team == team_of_interest:
+        target = "top"
+    else:
+        target = "bottom"
+    
+    goal_center = (52.5, 0) if target == "top" else (-52.5, 0)
+    goal_half_width = 3.66
+    
+    # Relative coordinates
+    dx = x - goal_center[0]
+    dy = y - goal_center[1]
+    
+    # Distance (meters) and angle (radians)
+    distance = np.sqrt(dx**2 + dy**2)
+    angle_left = np.arctan2(abs(dy) - goal_half_width, abs(dx))
+    angle_right = np.arctan2(abs(dy) + goal_half_width, abs(dx))
+    angle = angle_right - angle_left
+    
+    # Trained coefficients (approximated from StatsBomb-like models)
+    intercept = -1.45
+    dist_coef = -0.08  # More negative = sharper distance penalty
+    angle_coef = 0.02   # Positive = higher angle improves xG
+    
+    logit = intercept + dist_coef * distance + angle_coef * np.degrees(angle)
+    xg = 1 / (1 + np.exp(-logit))
+    
+    return round(xg,3)
+
+def show_kpis(shot_df):
+    n_shots = shot_df.shape[0]
+    n_goals = shot_df[shot_df.resultName=="Successful"].shape[0]
+
+    kpi_1, kpi_2, kpi_3, kpi_4 = st.columns(4)
+
+    kpi_1.metric(
+        r"\# Shots",  # Include the number in the text
+        millify(n_shots),
+        border=True,
+    )
+
+    kpi_2.metric(
+        r"\# Goals",
+        millify(n_goals),
+        border=True,
+    )
+
+    kpi_3.metric(
+        "xG",
+        millify(shot_df.xg.sum(), 2),
+        border=True,
+    )
+
+    kpi_4.metric(
+        "Goal Per Shot",
+        f'{millify(100*(n_goals/n_shots), 1)}%',
+        border=True,
+    )
+
+    kpi_5, kpi_6, kpi_7, kpi_8 = st.columns(4)
+    n_very_good_chances = shot_df[shot_df.xg>=0.3].shape[0]
+    n_good_chances = shot_df[(shot_df.xg<0.3)&(shot_df.xg>=0.15)].shape[0]
+    n_fair_chances = shot_df[(shot_df.xg<0.15)&(shot_df.xg>=0.07)].shape[0]
+    n_poor_chances = shot_df[shot_df.xg<0.07].shape[0]
+    
+    kpi_5.metric(
+        r"# :green-badge[Very Good Chances]",
+        millify(n_very_good_chances),
+        help="xG >= 0.3",
+        border=True,
+    )
+
+    kpi_6.metric(
+        r"# :blue-badge[Good Chances]",
+        millify(n_good_chances),
+        help="0.15 <= xG < 0.3",
+        border=True,
+    )
+
+    kpi_7.metric(
+        r"# :orange-badge[Fair Chances]",
+        millify(n_fair_chances),
+        help="0.07 <= xG < 0.15",
+        border=True,
+    )
+
+    kpi_8.metric(
+        r"# :red-badge[Poor Chances]",
+        f'{n_poor_chances}',
+        help="xG < 0.07",
+        border=True,
+    )
+
 
 
 def create_interactive_shot_plot(df, team, color_type):
@@ -64,8 +172,7 @@ def create_interactive_shot_plot(df, team, color_type):
 
     # Filter successful shots
     successful_shots = df[df["resultName"] == "Successful"]
-
-    if color_type != "None":
+    if color_type != "Same":
         categories = df[color_type].unique()
 
         for i, category in enumerate(categories):
@@ -78,7 +185,7 @@ def create_interactive_shot_plot(df, team, color_type):
                     y=category_shots.startPosXM,
                     mode="markers",
                     marker=dict(
-                        color=color, size=8, line=dict(color="black", width=0.5)
+                        color=color, size=base_marker + (marker_size*category_shots.xg), line=dict(color="black", width=0.5)
                     ),
                     name=str(category),
                     legendgroup="categories",
@@ -91,15 +198,18 @@ def create_interactive_shot_plot(df, team, color_type):
                             "possessionTypeName",
                             "partName",
                             "time",
+                            "xg",
+                            "date"
                         ]
                     ],
                     hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "<b>Team:</b> %{customdata[1]}<br>"
+                        "<b>%{customdata[0]}</b><br>" +
+                        ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
                         "<b>Body Part:</b> %{customdata[2]}<br>"
                         "<b>Phase:</b> %{customdata[3]}<br>"
                         "<b>Half:</b> %{customdata[4]}<br>"
-                        "<b>Time:</b> %{customdata[5]}"
+                        "<b>Time:</b> %{customdata[5]}<br>"
+                        "<b>xG:</b> %{customdata[6]}"
                         "<extra></extra>"
                     ),
                 )
@@ -111,7 +221,7 @@ def create_interactive_shot_plot(df, team, color_type):
                 y=df.startPosXM,
                 mode="markers",
                 marker=dict(
-                    color=shot_color, size=8, line=dict(color="black", width=0.5)
+                    color=shot_color, size=base_marker + (marker_size*df.xg), line=dict(color="black", width=0.5)
                 ),
                 showlegend=False,
                 customdata=df[
@@ -122,15 +232,18 @@ def create_interactive_shot_plot(df, team, color_type):
                         "possessionTypeName",
                         "partName",
                         "time",
+                        "xg",
+                        "date"
                     ]
                 ],
                 hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>"
-                    "<b>Team:</b> %{customdata[1]}<br>"
+                    "<b>%{customdata[0]}</b><br>" +
+                    ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
                     "<b>Body Part:</b> %{customdata[2]}<br>"
                     "<b>Phase:</b> %{customdata[3]}<br>"
                     "<b>Half:</b> %{customdata[4]}<br>"
-                    "<b>Time:</b> %{customdata[5]}"
+                    "<b>Time:</b> %{customdata[5]}<br>"
+                    "<b>xG:</b> %{customdata[6]}"
                     "<extra></extra>"
                 ),
             )
@@ -143,7 +256,7 @@ def create_interactive_shot_plot(df, team, color_type):
             y=successful_shots.startPosXM,
             mode="text",
             text="⚽",
-            textfont=dict(size=8, color="black"),
+            textfont=dict(size=11, color="black"),
             showlegend=False,
             customdata=successful_shots[
                 [
@@ -153,15 +266,18 @@ def create_interactive_shot_plot(df, team, color_type):
                     "possessionTypeName",
                     "partName",
                     "time",
+                    "xg",
+                    "date"
                 ]
             ],
             hovertemplate=(
-                "<b>%{customdata[0]}</b><br>"
-                "<b>Team:</b> %{customdata[1]}<br>"
+                "<b>%{customdata[0]}</b><br>" +
+                ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
                 "<b>Body Part:</b> %{customdata[2]}<br>"
                 "<b>Phase:</b> %{customdata[3]}<br>"
                 "<b>Half:</b> %{customdata[4]}<br>"
-                "<b>Time:</b> %{customdata[5]}"
+                "<b>Time:</b> %{customdata[5]}<br>"
+                "<b>xG:</b> %{customdata[6]}"
                 "<extra></extra>"
             ),
         )
@@ -170,16 +286,16 @@ def create_interactive_shot_plot(df, team, color_type):
     showlegend = True if color_type != "None" else False
     # Layout configuration
     fig.update_layout(
-        height=700,
-        width=700,
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(t=50),
         showlegend=showlegend,
         legend=dict(
-            y=0.89,  # Moves legend down (negative values move it below the plot)
+            bgcolor="rgba(0,0,0,0)",  # Fully transparent background
+            bordercolor="lightgray",   # Border color (e.g., lightgray, black, #D3D3D3)
+            borderwidth=0.1,         # Border thickness (adjust as needed)
+            y=0.9,  # Moves legend down (negative values move it below the plot)
             yanchor="top",  # Anchors the top of the legend at the y position
-            x=1.13,  # Centers horizontally
+            x=0.89 if color_type!="teamName" else 1.15,  # Centers horizontally
             xanchor="center",
             font=dict(  # Font customization
                 size=14,  # Increase font size
@@ -401,4 +517,12 @@ def create_interactive_shot_plot(df, team, color_type):
             fillcolor="black",
         )
 
+    # Reduce space between plot and modebar
+    fig.update_layout(
+        autosize=True,  # Key parameter for responsive scaling
+        margin=dict(t=0, b=0, l=0, r=0),  # Reduce top/bottom/left/right margins
+        modebar=dict(
+            orientation='h',          # Horizontal modebar (default is 'v')
+        )
+    )
     return fig

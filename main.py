@@ -2,11 +2,18 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-from utils import create_interactive_shot_plot, team_of_interest, opponents
+from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg
 import warnings
 
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
 
+# st.set_page_config(page_title="Recovery Status", page_icon="", layout="wide")
+
+st.set_page_config(
+    page_title="Impact",
+    page_icon="static/logo.png",
+    layout="wide",
+)
 data_dir = Path("data")
 
 # Reduce top margin
@@ -14,7 +21,7 @@ st.markdown(
     """
     <style>
         .block-container {
-            padding-top: 2.5rem;
+            padding-top: 2.8rem;
             padding-bottom: 1rem;
             padding-left: 1rem;
             padding-right: 1rem;
@@ -56,6 +63,8 @@ def return_team_shot_df(shot_df, team):
 
     team_shot_df.loc[mask, "endPosXM"] = -team_shot_df.loc[mask, "endPosXM"]
     team_shot_df.loc[mask, "endPosYM"] = -team_shot_df.loc[mask, "endPosYM"]
+
+    team_shot_df["xg"] = team_shot_df.apply(lambda row: calculate_xg(row.startPosXM, row.startPosYM, team), axis=1)
 
     return team_shot_df
 
@@ -141,7 +150,8 @@ def parse_data():
     )
     shot_df["partName"] = shot_df["partName"].apply(lambda x: half[x])
     shot_df["time"] = shot_df["startTimeMs"].apply(ms_to_min_sec)
-    shot_df["playerName"] = shot_df["playerName"].apply(return_shortname) 
+    shot_df["playerName"] = shot_df["playerName"].apply(return_shortname)
+    shot_df["date"] = shot_df["match"].str.split(" ").str[0]
     return matches, shot_df  # Return the collected data
 
 
@@ -149,10 +159,9 @@ matches, shot_df = parse_data()
 
 # Sidebar dropdown
 selected_match = st.sidebar.selectbox(
-    "Select a Match:",
+    "🎯 Select a Match:",
     options=["all"] + matches,
     index=0,  # Default to first match
-    help="Choose which match to analyze",
 )
 
 if selected_match == "all":
@@ -160,24 +169,29 @@ if selected_match == "all":
     interest_team_df = return_team_shot_df(shot_df, team_of_interest)
     opponent_df = return_team_shot_df(shot_df, opponents)
 else:
-    interest_team_df = return_team_shot_df(
-        shot_df[shot_df["match"] == selected_match], team_of_interest
+    match_shot_df = shot_df[shot_df["match"] == selected_match]
+    interest_team_df = return_team_shot_df(match_shot_df, team_of_interest
     )
     opponent_df = return_team_shot_df(
-        shot_df[shot_df["match"] == selected_match], opponents
+        match_shot_df, opponents
     )
-    team_options = [team_of_interest, list(opponent_df.teamName.unique())[0]]
-
+    temp = " ".join(shot_df["match"].iloc[0].split(" ")[1:])
+    teamA, teamB = temp.split(" vs ")
+    team_options = [teamA.strip(), teamB.strip()]
 selected_team = st.sidebar.selectbox(
-    "Team:",
+    "👥 Team:",
     options=team_options,
     index=0,  # Default to first match
-    help="Choose which team to analyze",
 )
 
+if selected_team == opponents:
+    color_options = ["Same", "Team", "Phase", "Body Part"]
+else:
+    color_options = ["Same", "Player", "Phase", "Body Part"]
+
 color_col = st.sidebar.selectbox(
-    "Color:",
-    options=["None", "Player", "Phase", "Body Part"],
+    "🎨 Color:",
+    options=color_options,
     index=0,  # Default to first match
     help="Choose a column as color",
 )
@@ -186,15 +200,22 @@ col2type = {
     "Player": "playerName",
     "Phase": "possessionTypeName",
     "Body Part": "bodyPartName",
+    "Team": "teamName",
 }
-color_type = col2type[color_col] if color_col != "None" else "None"
+color_type = col2type[color_col] if color_col != "Same" else "Same"
 
 # Get team data
 if selected_team == team_of_interest:
+    show_kpis(interest_team_df)
     fig = create_interactive_shot_plot(interest_team_df, team_of_interest, color_type)
 else:
+    show_kpis(opponent_df)
     if selected_match == "all":
         fig = create_interactive_shot_plot(opponent_df, opponents, color_type)
     else:
+
         fig = create_interactive_shot_plot(opponent_df, selected_team, color_type)
 st.plotly_chart(fig, use_container_width=True)
+
+st.sidebar.markdown("**Laws of the Game (#10):**")  
+st.sidebar.write("The team scoring the greater number of goals is the winner ...")

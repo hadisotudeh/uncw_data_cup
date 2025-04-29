@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "3a5159e3f62d225e61b3d861b26a427b25affb8981cbc81799a6cebf507ae20c"
+            "sha256": "6756bebafd5c34048c776051611f6c53482cb474afff910ec4153a4c5bf4e404"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -530,6 +530,13 @@
             "index": "pypi",
             "markers": "python_version >= '3.10'",
             "version": "==3.10.1"
+        },
+        "millify": {
+            "hashes": [
+                "sha256:619defdc98b6d23f941b5ce4aaf4bf87a0e0f64cd0446ffa299be94486597f1a"
+            ],
+            "index": "pypi",
+            "version": "==0.1.1"
         },
         "mplsoccer": {
             "hashes": [

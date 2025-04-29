@@ -1,6 +1,6 @@
-Quote laws of game - team scoring more wins
+a plot for xG for/against performance over 20 matches
 
-Find a formula for xg + use it to bin chances (like the notebook) + take some ideas from the notebook
+Take some ideas from the notebook
 
 for defensive analysis, see the goalkeeper
 
@@ -9,5 +9,3 @@ Video + LLM integration (using their criteria as prompt)
 Read the where goals come from article - american ...
 
 Find matches with higest xG and low score or highest number of shots outside box to report
-
-add KPI cards (number of goals, shots, shot rate, xG, ...)

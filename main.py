@@ -2,7 +2,7 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg, show_secondary_kpis
+from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg
 import warnings
 
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
@@ -206,18 +206,15 @@ color_type = col2type[color_col] if color_col != "Same" else "Same"
 
 # Get team data
 if selected_team == team_of_interest:
-    show_kpis(interest_team_df)
+    show_kpis(interest_team_df, selected_team)
     fig = create_interactive_shot_plot(interest_team_df, team_of_interest, color_type)
-    st.plotly_chart(fig, use_container_width=True)
-    show_secondary_kpis(interest_team_df, selected_team)
 else:
-    show_kpis(opponent_df)
+    show_kpis(opponent_df, selected_team)
     if selected_match == "all":
         fig = create_interactive_shot_plot(opponent_df, opponents, color_type)
     else:
         fig = create_interactive_shot_plot(opponent_df, selected_team, color_type)
-    st.plotly_chart(fig, use_container_width=True)
-    show_secondary_kpis(opponent_df, selected_team)
+st.plotly_chart(fig, use_container_width=True)
 
 st.sidebar.markdown("**Laws of the Game (#10):**")  
 st.sidebar.write("The team scoring the greater number of goals is the winner ...")

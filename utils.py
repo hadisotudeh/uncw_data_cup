@@ -78,73 +78,9 @@ def calculate_xg(x, y, team):
     
     return round(xg,3)
 
-def show_kpis(shot_df):
+def show_kpis(shot_df, team):
     n_shots = shot_df.shape[0]
     n_goals = shot_df[shot_df.resultName=="Successful"].shape[0]
-
-    kpi_1, kpi_2, kpi_3, kpi_4 = st.columns(4)
-
-    kpi_1.metric(
-        r"\# Shots",  # Include the number in the text
-        millify(n_shots),
-        border=True,
-    )
-
-    kpi_2.metric(
-        r"\# Goals",
-        millify(n_goals),
-        border=True,
-    )
-
-    kpi_3.metric(
-        "xG",
-        millify(shot_df.xg.sum(), 2),
-        border=True,
-    )
-
-    kpi_4.metric(
-        "Goal Per Shot",
-        f'{millify(100*(n_goals/n_shots), 1)}%',
-        border=True,
-    )
-
-    kpi_5, kpi_6, kpi_7, kpi_8 = st.columns(4)
-    n_very_good_chances = shot_df[shot_df.xg>=0.3].shape[0]
-    n_good_chances = shot_df[(shot_df.xg<0.3)&(shot_df.xg>=0.15)].shape[0]
-    n_fair_chances = shot_df[(shot_df.xg<0.15)&(shot_df.xg>=0.07)].shape[0]
-    n_poor_chances = shot_df[shot_df.xg<0.07].shape[0]
-    
-    kpi_5.metric(
-        r"# :green-badge[Very Good Chances]",
-        millify(n_very_good_chances),
-        help="xG >= 0.3",
-        border=True,
-    )
-
-    kpi_6.metric(
-        r"# :blue-badge[Good Chances]",
-        millify(n_good_chances),
-        help="0.15 <= xG < 0.3",
-        border=True,
-    )
-
-    kpi_7.metric(
-        r"# :orange-badge[Fair Chances]",
-        millify(n_fair_chances),
-        help="0.07 <= xG < 0.15",
-        border=True,
-    )
-
-    kpi_8.metric(
-        r"# :red-badge[Poor Chances]",
-        f'{n_poor_chances}',
-        help="xG < 0.07",
-        border=True,
-    )
-
-def show_secondary_kpis(shot_df, team):
-    _, _, kpi_1, kpi_2, _, _ = st.columns(6)
-    n_shots = shot_df.shape[0]
 
     if team == team_of_interest:
         n_shots_within_penalty_area = len(
@@ -160,14 +96,74 @@ def show_secondary_kpis(shot_df, team):
             ])
 
     n_shots_outside_penalty_area = n_shots - n_shots_within_penalty_area
+
+    kpi_1, kpi_2, kpi_3, kpi_4, kpi_5 = st.columns(5)
+
     kpi_1.metric(
-        r"# :green-badge[# Shots Inside Penalty Area]",
+        r":green-badge[Goals]",
+        millify(n_goals),
+        border=True,
+    )
+
+    kpi_2.metric(
+        "Shots",  # Include the number in the text
+        millify(n_shots),
+        border=True,
+    )
+
+    kpi_3.metric(
+        "Shots in Box",
         millify(n_shots_within_penalty_area),
         border=True,
     )
-    kpi_2.metric(
-        r"# :red-badge[# Shots Outside Penalty Area]",
+    kpi_4.metric(
+        "Shots Outside Box",
         millify(n_shots_outside_penalty_area),
+        border=True,
+    )
+    kpi_5.metric(
+        "Shots per Goal Rate",
+        millify(n_shots/n_goals),
+        border=True,
+    )
+
+    kpi_5, kpi_6, kpi_7, kpi_8, kpi_9 = st.columns(5)
+    n_very_good_chances = shot_df[shot_df.xg>=0.3].shape[0]
+    n_good_chances = shot_df[(shot_df.xg<0.3)&(shot_df.xg>=0.15)].shape[0]
+    n_fair_chances = shot_df[(shot_df.xg<0.15)&(shot_df.xg>=0.07)].shape[0]
+    n_poor_chances = shot_df[shot_df.xg<0.07].shape[0]
+    
+    kpi_5.metric(
+        "xG",
+        millify(shot_df.xg.sum(), 2),
+        border=True,
+    )
+
+    kpi_6.metric(
+        ":green-badge[Very Good Chances]",
+        millify(n_very_good_chances),
+        help="xG >= 0.3",
+        border=True,
+    )
+
+    kpi_7.metric(
+        ":blue-badge[Good Chances]",
+        millify(n_good_chances),
+        help="0.15 <= xG < 0.3",
+        border=True,
+    )
+
+    kpi_8.metric(
+        ":orange-badge[Fair Chances]",
+        millify(n_fair_chances),
+        help="0.07 <= xG < 0.15",
+        border=True,
+    )
+
+    kpi_9.metric(
+        ":red-badge[Poor Chances]",
+        millify(n_poor_chances),
+        help="xG < 0.07",
         border=True,
     )
 

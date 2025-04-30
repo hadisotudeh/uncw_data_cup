@@ -1,3 +1,9 @@
+Add heatmaps or zones
+
+Add xpoints and match results table like bielsa
+
+Use fotmob style with shot end location 
+
 a plot for xG for/against performance over 20 matches
 
 Take some ideas from the notebook

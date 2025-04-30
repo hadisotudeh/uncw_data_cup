@@ -142,7 +142,34 @@ def show_kpis(shot_df):
         border=True,
     )
 
+def show_secondary_kpis(shot_df, team):
+    _, _, kpi_1, kpi_2, _, _ = st.columns(6)
+    n_shots = shot_df.shape[0]
 
+    if team == team_of_interest:
+        n_shots_within_penalty_area = len(
+            shot_df[
+                (shot_df['startPosXM'] >= 52.5 - 16.5) & 
+                (shot_df['startPosYM'].abs() <= 23.82)
+                ])
+    else:
+        n_shots_within_penalty_area = len(
+            shot_df[
+                (shot_df['startPosXM'] <= 16.5 - 52.5) & 
+                (shot_df['startPosYM'].abs() <= 23.82)
+            ])
+
+    n_shots_outside_penalty_area = n_shots - n_shots_within_penalty_area
+    kpi_1.metric(
+        r"# :green-badge[# Shots Inside Penalty Area]",
+        millify(n_shots_within_penalty_area),
+        border=True,
+    )
+    kpi_2.metric(
+        r"# :red-badge[# Shots Outside Penalty Area]",
+        millify(n_shots_outside_penalty_area),
+        border=True,
+    )
 
 def create_interactive_shot_plot(df, team, color_type):
     """
@@ -289,6 +316,13 @@ def create_interactive_shot_plot(df, team, color_type):
         plot_bgcolor="white",
         paper_bgcolor="white",
         showlegend=showlegend,
+        hoverlabel=dict(
+            align="right",  # Align text to the right within the box
+            bgcolor="white",
+            font_size=12,
+            font_family="Arial",
+            bordercolor="black"
+        ),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",  # Fully transparent background
             bordercolor="lightgray",   # Border color (e.g., lightgray, black, #D3D3D3)
@@ -519,10 +553,11 @@ def create_interactive_shot_plot(df, team, color_type):
 
     # Reduce space between plot and modebar
     fig.update_layout(
-        autosize=True,  # Key parameter for responsive scaling
-        margin=dict(t=0, b=0, l=0, r=0),  # Reduce top/bottom/left/right margins
+        autosize=True,
+        hovermode="closest",
+        margin=dict(t=0, b=0, l=0, r=0),  # Increased left margin
         modebar=dict(
-            orientation='h',          # Horizontal modebar (default is 'v')
+            orientation='h',
         )
     )
     return fig

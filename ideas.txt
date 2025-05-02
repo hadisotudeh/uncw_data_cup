@@ -1,17 +1,31 @@
-Add heatmaps or zones
-
 Add xpoints and match results table like bielsa
 
 Use fotmob style with shot end location 
 
 a plot for xG for/against performance over 20 matches
 
-Take some ideas from the notebook
-
-for defensive analysis, see the goalkeeper
-
-Video + LLM integration (using their criteria as prompt)
-
-Read the where goals come from article - american ...
+xG distribution plot ..., ......, ....
 
 Find matches with higest xG and low score or highest number of shots outside box to report
+
+Video
+
+create a barchart of player's invovled.
+
+# Could add a function like this to show shot trends over time
+def create_timeline_plot(df):
+    df['time_sec'] = df['startTimeMs'] / 1000
+    fig = px.scatter(df, x='time_sec', y='xg', color='resultName',
+                    title='Shot Quality Over Time')
+    fig.update_layout(xaxis_title='Match Time (seconds)',
+                     yaxis_title='xG Value')
+    return fig
+
+# Add player comparison metrics
+def show_player_comparison(shot_df):
+    player_stats = shot_df.groupby('playerName').agg({
+        'xg': 'sum',
+        'resultName': lambda x: (x == 'Successful').sum(),
+        'startPosXM': 'mean'
+    }).sort_values('xg', ascending=False)
+    st.dataframe(player_stats.style.highlight_max(color='lightgreen'))

@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 from millify import millify
+from functools import lru_cache
+from config import client, model
 
 team_of_interest = "University of North Carolina Wilmington"
 opponents = "opponents"
@@ -121,9 +123,10 @@ def show_kpis(shot_df, team):
         millify(n_shots_outside_penalty_area),
         border=True,
     )
+    shot_per_goal = n_shots/n_goals
     kpi_5.metric(
         "Shots per Goal Rate",
-        millify(n_shots/n_goals),
+        millify(shot_per_goal) if n_goals!=0 else "Not Defined",
         border=True,
     )
 
@@ -167,11 +170,12 @@ def show_kpis(shot_df, team):
         border=True,
     )
 
-def create_interactive_shot_plot(df, team, color_type):
+def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
     """
     Create an interactive shot plot with:
     - Thicker goal net visualization
     - Corrected penalty arcs showing only outside portion
+    - Optional shot heatmap (when show_heatmap=True)
     """
     # Create figure
     fig = make_subplots(rows=1, cols=1, specs=[[{"type": "scatter"}]])
@@ -195,25 +199,92 @@ def create_interactive_shot_plot(df, team, color_type):
 
     # Filter successful shots
     successful_shots = df[df["resultName"] == "Successful"]
-    if color_type != "Same":
-        categories = df[color_type].unique()
 
-        for i, category in enumerate(categories):
-            category_shots = df[df[color_type] == category]
-            color = tableau_colors[i % len(tableau_colors)]
+    # Add heatmap if parameter is True
+    if show_heatmap:
+        # Create a 2D histogram of shot locations
+        x_bins = np.linspace(-pitch_width/2, pitch_width/2, 21)
+        y_bins = np.linspace(y_range[0], y_range[1], 17)
+        
+        heatmap, xedges, yedges = np.histogram2d(
+            df['startPosYM'], 
+            df['startPosXM'], 
+            bins=[x_bins, y_bins]
+        )
+        
+        # Normalize heatmap
+        heatmap = heatmap / heatmap.max()
+        
+        heatmap[heatmap == 0] = np.nan
 
+        # Add heatmap trace
+        fig.add_trace(
+            go.Heatmap(
+                x=xedges,
+                y=yedges,
+                z=heatmap.T,
+                colorscale='Reds',
+                opacity=0.5,
+                showscale=False,
+                hoverinfo='none',
+                zmin=0.001,  # Set slightly above 0 to ensure proper scaling
+                zmax=1
+            )
+        )
+    else:
+        if color_type != "Same":
+            categories = df[color_type].unique()
+
+            for i, category in enumerate(categories):
+                category_shots = df[df[color_type] == category]
+                color = tableau_colors[i % len(tableau_colors)]
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=category_shots.startPosYM,
+                        y=category_shots.startPosXM,
+                        mode="markers",
+                        marker=dict(
+                            color=color, size=base_marker + (marker_size*category_shots.xg), line=dict(color="black", width=0.5)
+                        ),
+                        name=str(category),
+                        legendgroup="categories",
+                        showlegend=True,
+                        customdata=category_shots[
+                            [
+                                "playerName",
+                                "teamName",
+                                "bodyPartName",
+                                "possessionTypeName",
+                                "partName",
+                                "time",
+                                "xg",
+                                "date"
+                            ]
+                        ],
+                        hovertemplate=(
+                            "<b>%{customdata[0]}</b><br>" +
+                            ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
+                            "<b>Body Part:</b> %{customdata[2]}<br>"
+                            "<b>Phase:</b> %{customdata[3]}<br>"
+                            "<b>Half:</b> %{customdata[4]}<br>"
+                            "<b>Time:</b> %{customdata[5]}<br>"
+                            "<b>xG:</b> %{customdata[6]}"
+                            "<extra></extra>"
+                        ),
+                    )
+                )
+        else:
             fig.add_trace(
                 go.Scatter(
-                    x=category_shots.startPosYM,
-                    y=category_shots.startPosXM,
+                    x=df.startPosYM,
+                    y=df.startPosXM,
                     mode="markers",
                     marker=dict(
-                        color=color, size=base_marker + (marker_size*category_shots.xg), line=dict(color="black", width=0.5)
+                        color=shot_color, size=base_marker + (marker_size*df.xg), line=dict(color="black", width=0.5)
                     ),
-                    name=str(category),
-                    legendgroup="categories",
-                    showlegend=True,
-                    customdata=category_shots[
+                    showlegend=False,
+                    customdata=df[
                         [
                             "playerName",
                             "teamName",
@@ -237,40 +308,6 @@ def create_interactive_shot_plot(df, team, color_type):
                     ),
                 )
             )
-    else:
-        fig.add_trace(
-            go.Scatter(
-                x=df.startPosYM,
-                y=df.startPosXM,
-                mode="markers",
-                marker=dict(
-                    color=shot_color, size=base_marker + (marker_size*df.xg), line=dict(color="black", width=0.5)
-                ),
-                showlegend=False,
-                customdata=df[
-                    [
-                        "playerName",
-                        "teamName",
-                        "bodyPartName",
-                        "possessionTypeName",
-                        "partName",
-                        "time",
-                        "xg",
-                        "date"
-                    ]
-                ],
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>" +
-                    ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
-                    "<b>Body Part:</b> %{customdata[2]}<br>"
-                    "<b>Phase:</b> %{customdata[3]}<br>"
-                    "<b>Half:</b> %{customdata[4]}<br>"
-                    "<b>Time:</b> %{customdata[5]}<br>"
-                    "<b>xG:</b> %{customdata[6]}"
-                    "<extra></extra>"
-                ),
-            )
-        )
 
     # Plot successful shots as football emoji
     fig.add_trace(
@@ -306,6 +343,7 @@ def create_interactive_shot_plot(df, team, color_type):
         )
     )
 
+    # Rest of the function remains the same...
     showlegend = True if color_type != "None" else False
     # Layout configuration
     fig.update_layout(
@@ -347,6 +385,23 @@ def create_interactive_shot_plot(df, team, color_type):
     fig.update_yaxes(
         range=y_range, showgrid=False, zeroline=False, showticklabels=False
     )
+
+    # Pitch markings style
+    line_color = "#888888"
+    line_width = 0.5
+
+    # 1. Pitch outline
+    fig.add_shape(
+        type="rect",
+        x0=-pitch_width / 2,
+        y0=y_range[0],
+        x1=pitch_width / 2,
+        y1=y_range[1],
+        line=dict(color=line_color, width=line_width),
+    )
+
+    # Rest of the pitch markings code remains the same...
+    # (Keep all the existing pitch marking code from the original function)
 
     # Pitch markings style
     line_color = "#888888"
@@ -557,3 +612,41 @@ def create_interactive_shot_plot(df, team, color_type):
         )
     )
     return fig
+
+@lru_cache(maxsize=100)  # Cache up to 100 unique requests
+def get_ai_analysis(df_json, mode):
+    if mode == "attack":
+        """Get AI analysis for the filtered data."""
+        content = f"""
+        This is dataset of shots that UNCW had:
+        ```json
+        {df_json}"""
+    else:
+        content = f"""
+        This is dataset of shots that UNCW faced:
+        ```json
+        {df_json}"""
+
+    messages = [{
+        "role": "system",
+        "content": """
+            You are an expert soccer analyst specializing in NCAA women's soccer. Provide concise, 
+            tactical insights focusing on:
+            - Shot creation patterns (e.g., crosses vs through balls)
+            - Defensive vulnerabilities (e.g., which zones concede most shots)
+            - Player-specific tendencies
+            - Game phase analysis (e.g., performance late in halves)
+            Format insights with:
+            1. Key Observation
+            2. Evidence (stats)
+            3. Recommended Action
+            """
+    }]
+
+    messages.append({"role": "user", "content": content})
+
+    chat_response = client.chat.complete(
+        model=model,
+        messages=messages,
+    )
+    return chat_response.choices[0].message.content

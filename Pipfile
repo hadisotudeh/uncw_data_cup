@@ -12,6 +12,7 @@ seaborn = "*"
 numpy = "*"
 plotly = "*"
 millify = "*"
+mistralai = "*"
 
 [dev-packages]
 black = "*"

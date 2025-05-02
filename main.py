@@ -2,7 +2,7 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg
+from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg, get_ai_analysis
 import warnings
 
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
@@ -65,7 +65,6 @@ def return_team_shot_df(shot_df, team):
     team_shot_df.loc[mask, "endPosYM"] = -team_shot_df.loc[mask, "endPosYM"]
 
     team_shot_df["xg"] = team_shot_df.apply(lambda row: calculate_xg(row.startPosXM, row.startPosYM, team), axis=1)
-
     return team_shot_df
 
 
@@ -196,6 +195,21 @@ color_col = st.sidebar.selectbox(
     help="Choose a column as color",
 )
 
+show_heatmap = st.sidebar.selectbox(
+    "🔥 Heatmap:",
+    options=[False, True],
+    index=0,  # Default to first match
+    help="Choose a column as color",
+)
+
+ai_attack_columns = ['playerName','resultName', 'bodyPartName', 
+              'shotTypeName','startPosXM', 'startPosYM', 'possessionTypeName', 
+              'match', 'time']
+
+ai_defense_columns = ['teamName','resultName', 'bodyPartName', 
+              'shotTypeName','startPosXM', 'startPosYM', 'possessionTypeName', 
+              'match', 'time']
+
 col2type = {
     "Player": "playerName",
     "Phase": "possessionTypeName",
@@ -207,14 +221,22 @@ color_type = col2type[color_col] if color_col != "Same" else "Same"
 # Get team data
 if selected_team == team_of_interest:
     show_kpis(interest_team_df, selected_team)
-    fig = create_interactive_shot_plot(interest_team_df, team_of_interest, color_type)
+    fig = create_interactive_shot_plot(interest_team_df, team_of_interest, color_type, show_heatmap)
+    df_json = interest_team_df[ai_attack_columns].to_json(orient="records")
+    ai_matchanalyst_message = get_ai_analysis(df_json, mode="attack")
 else:
     show_kpis(opponent_df, selected_team)
     if selected_match == "all":
-        fig = create_interactive_shot_plot(opponent_df, opponents, color_type)
+        fig = create_interactive_shot_plot(opponent_df, opponents, color_type, show_heatmap)
     else:
-        fig = create_interactive_shot_plot(opponent_df, selected_team, color_type)
+        fig = create_interactive_shot_plot(opponent_df, selected_team, color_type, show_heatmap)
+    df_json = opponent_df[ai_defense_columns].to_json(orient="records")
+    ai_matchanalyst_message = get_ai_analysis(df_json, mode="defense")
+
 st.plotly_chart(fig, use_container_width=True)
+
+st.subheader("AI Match Analyst's Opinion: 💻")
+st.write(ai_matchanalyst_message)
 
 st.sidebar.markdown("**Laws of the Game (#10):**")  
 st.sidebar.write("The team scoring the greater number of goals is the winner ...")

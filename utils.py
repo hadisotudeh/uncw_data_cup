@@ -650,3 +650,4 @@ def get_ai_analysis(df_json, mode):
         messages=messages,
     )
     return chat_response.choices[0].message.content
+

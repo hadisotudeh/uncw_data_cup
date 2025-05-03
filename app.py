@@ -2,7 +2,7 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
-from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg, get_ai_analysis
+from utils import create_interactive_shot_plot, team_of_interest, opponents, show_kpis, calculate_xg, get_ai_analysis, return_opponent
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -11,8 +11,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 
-warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
-
+warnings.filterwarnings("ignore")
 # st.set_page_config(page_title="Recovery Status", page_icon="", layout="wide")
 
 blue = "#4D7DBF"
@@ -185,9 +184,9 @@ if selected_view == "Case Explorer":
     )
 
     if selected_team == opponents:
-        color_options = ["Same", "Team", "Phase", "Body Part"]
+        color_options = ["Same", "Team", "Phase", "Body Part", "Shot Type"]
     else:
-        color_options = ["Same", "Player", "Phase", "Body Part"]
+        color_options = ["Same", "Player", "Phase", "Body Part", "Shot Type"]
 
     color_col = st.sidebar.selectbox(
         "🎨 Color:",
@@ -216,6 +215,7 @@ if selected_view == "Case Explorer":
         "Phase": "possessionTypeName",
         "Body Part": "bodyPartName",
         "Team": "teamName",
+        "Shot Type":"shotTypeName",
     }
     color_type = col2type[color_col] if color_col != "Same" else "Same"
 
@@ -246,6 +246,7 @@ else:
     opponent_df = return_team_shot_df(shot_df, opponents)
 
     df = pd.concat([interest_team_df, opponent_df])
+    df["goal"] = df.resultName.apply(lambda x: 1 if x=="Successful" else 0)
     df['match_date'] = pd.to_datetime(df['date'])
 
     # Sort by date
@@ -256,19 +257,95 @@ else:
     # Calculate xG against (opponent's xG in same matches)
     xg_against = df[df['teamName'] != team_of_interest].groupby(['match','match_date'])['xg'].sum().reset_index().rename(columns={'xg': 'xG_against'})
 
+    # First get the total goals by team for each match
+    match_results = df.groupby(["match", "match_date", "teamName"]).goal.sum().reset_index()
+
+    # Then determine the result for team_of_interest
+    # Pivot the data to have one row per match with both teams' goals
+    pivoted = match_results.pivot(index=["match", "match_date"], 
+                                columns="teamName", 
+                                values="goal").reset_index()
+
+    # Find all opponent teams (all columns except match, match_date, and team_of_interest)
+    opponent_teams = [col for col in pivoted.columns 
+                    if col not in ["match", "match_date", team_of_interest]]
+
+    # For each match, compare team_of_interest's goals against all opponents
+    def determine_result(row):
+        team_goals = row[team_of_interest]
+        for opponent in opponent_teams:
+            if opponent in row:  # Check if opponent column exists (might be NaN if they didn't score)
+                opponent_goals = row[opponent]
+                if pd.notna(opponent_goals):  # Only compare if opponent goals exist
+                    if team_goals > opponent_goals:
+                        return 'won'
+                    elif team_goals < opponent_goals:
+                        return 'lost'
+        return 'draw'  # If all comparisons are equal or no opponents found
+
+    pivoted['result'] = pivoted.apply(determine_result, axis=1)
+
     # Merge results
     match_xg = pd.merge(xg_for, xg_against, on=['match','match_date'], how='outer').fillna(0)
 
-    match_xg.sort_values("match_date", inplace=True)
+    match_xg = match_xg.merge(pivoted[['match', 'result']], on='match', how='left')
 
     match_xg['y_for'] = match_xg['xG_for']
     match_xg['y_against'] = match_xg['xG_against']
+    match_xg["opponent"] = match_xg["match"].apply(return_opponent)
+
+    match_xg.sort_values("match_date", inplace=True, ascending=True)
+
     ylabel = 'xG per Match'
 
-    # Create the plot with Plotly
+
+    # Define colors with some transparency
+    result_colors = {
+        'won': '#E0E3D0',    # Green with 20% opacity
+        'lost': '#F1D7D5',   # Red with 20% opacity
+        'draw': 'white'  # Yellow with 20% opacity
+    }
+
+    # Create the figure
     fig = go.Figure()
 
-    # Add traces for xG For and xG Against
+
+    # First add the background rectangles
+    for i in range(len(match_xg)):
+        match = match_xg.iloc[i]
+        
+        # Calculate x positions (centered around the match date)
+        if i == 0:
+            # First match - use half the distance to next match as width
+            x0 = match['match_date']
+            x1 = match_xg.iloc[i+1]['match_date']
+            width = (x1 - x0).total_seconds() / 2
+            x0 = x0 - pd.Timedelta(seconds=width)
+            x1 = match['match_date'] + pd.Timedelta(seconds=width)
+        elif i == len(match_xg) - 1:
+            # Last match - use same width as previous interval
+            x0_prev = match_xg.iloc[i-1]['match_date']
+            width = (match['match_date'] - x0_prev).total_seconds() / 2
+            x0 = match['match_date'] - pd.Timedelta(seconds=width)
+            x1 = match['match_date'] + pd.Timedelta(seconds=width)
+        else:
+            # Middle matches - use half distance to previous and next matches
+            x0_prev = match_xg.iloc[i-1]['match_date']
+            x1_next = match_xg.iloc[i+1]['match_date']
+            width_before = (match['match_date'] - x0_prev).total_seconds() / 2
+            width_after = (x1_next - match['match_date']).total_seconds() / 2
+            x0 = match['match_date'] - pd.Timedelta(seconds=width_before)
+            x1 = match['match_date'] + pd.Timedelta(seconds=width_after)
+        
+        fig.add_vrect(
+            x0=x0,
+            x1=x1,
+            fillcolor=result_colors[match['result']],
+            layer="below",
+            line_width=0,
+        )
+
+    # Then add your original traces (unchanged)
     fig.add_trace(go.Scatter(
         x=match_xg['match_date'],
         y=match_xg['y_for'],
@@ -276,7 +353,8 @@ else:
         name='xG For',
         line=dict(color=blue, dash='dash'),
         marker=dict(color=blue, size=8),
-        hovertemplate='xG For: %{y:.2f}<extra></extra>'
+        customdata=match_xg[['opponent', 'result']],
+        hovertemplate='Opponent: %{customdata[0]}<br>Result: %{customdata[1]}<br>xG For: %{y:.2f}<extra></extra>'
     ))
 
     fig.add_trace(go.Scatter(
@@ -286,37 +364,30 @@ else:
         name='xG Against',
         line=dict(color=red, dash='dash'),
         marker=dict(color=red, size=8),
-        hovertemplate='xG Against: %{y:.2f}<extra></extra>'  # No match name here
+        customdata=match_xg[['opponent', 'result']],
+        hovertemplate='Opponent: %{customdata[0]}<br>Result: %{customdata[1]}<br>xG Against: %{y:.2f}<extra></extra>'
     ))
 
-    # Add annotations for the last point
-    last_date = match_xg.iloc[-1]['match_date']
-    last_for = match_xg.iloc[-1]['y_for']
-    last_against = match_xg.iloc[-1]['y_against']
+    # Add result legend (dummy traces)
 
-    fig.add_annotation(
-        x=last_date,
-        y=last_for,
-        text=f'{last_for:.2f}',
-        showarrow=True,
-        arrowhead=1,
-        ax=20,
-        ay=0,
-        font=dict(color=blue)
-    )
+    for result, color in result_colors.items():
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            name=result.capitalize(),
+            marker=dict(
+                color=color.replace('0.2', '1.0'),  # Full opacity for legend
+                size=12,  # Slightly larger for better visibility
+                line=dict(
+                    color='black',  # Black outline
+                    width=1.5      # Outline thickness
+                )
+            ),
+            showlegend=True
+        ))
 
-    fig.add_annotation(
-        x=last_date,
-        y=last_against,
-        text=f'{last_against:.2f}',
-        showarrow=True,
-        arrowhead=1,
-        ax=20,
-        ay=0,
-        font=dict(color=red)
-    )
-
-    # Update layout
+    # Rest of your layout code remains the same...
     fig.update_layout(
         title=f'xG Timeline for {team_of_interest}',
         xaxis_title='Match Date',
@@ -331,7 +402,7 @@ else:
         ),
         margin=dict(l=20, r=20, t=60, b=20),
         plot_bgcolor='white',
-        paper_bgcolor='white', # Changed to white
+        paper_bgcolor='white',
         xaxis=dict(
             gridcolor='rgba(200,200,200,0.5)',
             showgrid=True

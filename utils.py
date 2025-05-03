@@ -259,17 +259,20 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                                 "partName",
                                 "time",
                                 "xg",
-                                "date"
+                                "date",
+                                "shotTypeName",
                             ]
                         ],
                         hovertemplate=(
                             "<b>%{customdata[0]}</b><br>" +
-                            ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
+                            ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "") +
                             "<b>Body Part:</b> %{customdata[2]}<br>"
                             "<b>Phase:</b> %{customdata[3]}<br>"
+                            "<b>Shot Type:</b> %{customdata[8]}<br>"
                             "<b>Half:</b> %{customdata[4]}<br>"
                             "<b>Time:</b> %{customdata[5]}<br>"
-                            "<b>xG:</b> %{customdata[6]}"
+                            "<b>xG:</b> %{customdata[6]}<br>"
+                            "<b>Date:</b> %{customdata[7]}"
                             "<extra></extra>"
                         ),
                     )
@@ -293,17 +296,20 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                             "partName",
                             "time",
                             "xg",
-                            "date"
+                            "date",
+                            "shotTypeName",
                         ]
                     ],
                     hovertemplate=(
                         "<b>%{customdata[0]}</b><br>" +
-                        ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
+                        ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "") +
                         "<b>Body Part:</b> %{customdata[2]}<br>"
                         "<b>Phase:</b> %{customdata[3]}<br>"
+                        "<b>Shot Type:</b> %{customdata[8]}<br>"
                         "<b>Half:</b> %{customdata[4]}<br>"
                         "<b>Time:</b> %{customdata[5]}<br>"
-                        "<b>xG:</b> %{customdata[6]}"
+                        "<b>xG:</b> %{customdata[6]}<br>"
+                        "<b>Date:</b> %{customdata[7]}"
                         "<extra></extra>"
                     ),
                 )
@@ -327,17 +333,20 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                     "partName",
                     "time",
                     "xg",
-                    "date"
+                    "date",
+                    "shotTypeName",
                 ]
             ],
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>" +
-                ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "<b>Date:</b> %{customdata[7]}<br>") +
+                ("<b>Team:</b> %{customdata[1]}<br>" if team != team_of_interest else "") +
                 "<b>Body Part:</b> %{customdata[2]}<br>"
                 "<b>Phase:</b> %{customdata[3]}<br>"
+                "<b>Shot Type:</b> %{customdata[8]}<br>"
                 "<b>Half:</b> %{customdata[4]}<br>"
                 "<b>Time:</b> %{customdata[5]}<br>"
-                "<b>xG:</b> %{customdata[6]}"
+                "<b>xG:</b> %{customdata[6]}<br>"
+                "<b>Date:</b> %{customdata[7]}"
                 "<extra></extra>"
             ),
         )
@@ -651,3 +660,6 @@ def get_ai_analysis(df_json, mode):
     )
     return chat_response.choices[0].message.content
 
+def return_opponent(match_str):
+    temp =  " ".join(match_str.split(" ")[1:])
+    return temp.replace(team_of_interest,"").replace(" vs ","").strip()

@@ -1,8 +1,4 @@
-Add xpoints and match results table like bielsa
-
 Use fotmob style with shot end location 
-
-add to annotation if the shot goes wide
 
 xG distribution plot ..., ......, ....
 

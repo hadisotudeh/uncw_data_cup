@@ -1,9 +1,3 @@
-Use fotmob style with shot end location 
+to show:
 
-xG distribution plot ..., ......, ....
-
-Find matches with higest xG and low score or highest number of shots outside box to report
-
-Video
-
-create a barchart of player's invovled.
+11-09

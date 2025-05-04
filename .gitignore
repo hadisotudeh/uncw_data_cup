@@ -176,3 +176,4 @@ cython_debug/
 NDA/
 data/
 sample reports/
+static/video.mp4

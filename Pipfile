@@ -13,6 +13,8 @@ numpy = "*"
 plotly = "*"
 millify = "*"
 mistralai = "*"
+streamlit-plotly-events = "*"
+streamlit-js-eval = "*"
 
 [dev-packages]
 black = "*"

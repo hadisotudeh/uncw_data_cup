@@ -123,10 +123,10 @@ def show_kpis(shot_df, team):
         millify(n_shots_outside_penalty_area),
         border=True,
     )
-    shot_per_goal = n_shots/n_goals
+    shot_per_goal = millify(n_shots/n_goals) if n_goals!=0 else "NaN"
     kpi_5.metric(
         "Shots per Goal Rate",
-        millify(shot_per_goal) if n_goals!=0 else "Not Defined",
+        shot_per_goal,
         border=True,
     )
 
@@ -233,7 +233,7 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
         )
     else:
         if color_type != "Same":
-            categories = df[color_type].unique()
+            categories = df[color_type].value_counts().index.tolist()
 
             for i, category in enumerate(categories):
                 category_shots = df[df[color_type] == category]
@@ -248,8 +248,9 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                             color=color, size=base_marker + (marker_size*category_shots.xg), line=dict(color="black", width=0.5)
                         ),
                         name=str(category),
-                        legendgroup="categories",
+                        legendgroup=category,
                         showlegend=True,
+                        visible=True,
                         customdata=category_shots[
                             [
                                 "playerName",
@@ -261,6 +262,9 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                                 "xg",
                                 "date",
                                 "shotTypeName",
+                                "endPosXM",
+                                "endPosYM",
+                                "video_path",
                             ]
                         ],
                         hovertemplate=(
@@ -286,7 +290,11 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                     marker=dict(
                         color=shot_color, size=base_marker + (marker_size*df.xg), line=dict(color="black", width=0.5)
                     ),
-                    showlegend=False,
+                    name="Shots",
+                    showlegend=True,
+                    legendgroup="Shots",
+                    visible=True,
+                    # showlegend=False,
                     customdata=df[
                         [
                             "playerName",
@@ -298,6 +306,9 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                             "xg",
                             "date",
                             "shotTypeName",
+                            "endPosXM",
+                            "endPosYM",
+                            "video_path",
                         ]
                     ],
                     hovertemplate=(
@@ -321,9 +332,12 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
             x=successful_shots.startPosYM,
             y=successful_shots.startPosXM,
             mode="text",
+            name="Goals",
             text="⚽",
+            legendgroup="goals",
+            visible=True,
             textfont=dict(size=11, color="black"),
-            showlegend=False,
+            showlegend=True,
             customdata=successful_shots[
                 [
                     "playerName",
@@ -335,6 +349,9 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                     "xg",
                     "date",
                     "shotTypeName",
+                    "endPosXM",
+                    "endPosYM",
+                    "video_path",
                 ]
             ],
             hovertemplate=(
@@ -367,7 +384,9 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
             bordercolor="black"
         ),
         legend=dict(
-            bgcolor="rgba(0,0,0,0)",  # Fully transparent background
+            itemclick="toggleothers",  # Clicking an item will show only that item
+            itemdoubleclick="toggle",  # Double-clicking will toggle the item
+            bgcolor="rgba(0,0,0,0)",  # Fully transparent background    
             bordercolor="lightgray",   # Border color (e.g., lightgray, black, #D3D3D3)
             borderwidth=0.1,         # Border thickness (adjust as needed)
             y=0.9,  # Moves legend down (negative values move it below the plot)
@@ -379,6 +398,7 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
                 family="Arial",  # Optional font family
                 color="black",  # Optional font color
             ),
+            tracegroupgap=2,  # Small gap between groups if using legendgroups
         ),
     )
 

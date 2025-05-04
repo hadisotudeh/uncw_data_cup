@@ -143,6 +143,7 @@ def parse_data():
     shot_df["time"] = shot_df["startTimeMs"].apply(ms_to_min_sec)
     shot_df["playerName"] = shot_df["playerName"].apply(return_shortname)
     shot_df["date"] = shot_df["match"].str.split(" ").str[0]
+    shot_df["video_path"] = "static/video.mp4"
     return matches, shot_df  # Return the collected data
 
 
@@ -234,13 +235,26 @@ if selected_view == "Case Explorer":
         df_json = opponent_df[ai_defense_columns].to_json(orient="records")
         ai_matchanalyst_message = get_ai_analysis(df_json, mode="defense")
 
-    st.plotly_chart(fig, use_container_width=True)
+    selection=st.plotly_chart(fig, use_container_width=True, on_select="rerun", selection_mode="points")
 
+    if selection and 'selection':
+        if 'points' in selection['selection']:
+            if len(selection['selection']['points'])>0:
+                # Extract clicked points from the selected event
+                click_data = selection['selection']['points'][0]
+                start_x, start_y = click_data['x'], click_data['y']
+                video_path = click_data.get("customdata")[-1]
+                # Update and display plot with vector
+                if video_path:
+                    st.subheader("Selected Shot Clip: 📽️")
+                    st.video(video_path)
     st.subheader("AI Match Analyst's Opinion: 💻")
     st.write(ai_matchanalyst_message)
 
     st.sidebar.markdown("**Laws of the Game (#10):**")  
     st.sidebar.write("The team scoring the greater number of goals is the winner ...")
+
+    st.plotly_chart(fig, use_container_width=True)
 else:
     interest_team_df = return_team_shot_df(shot_df, team_of_interest)
     opponent_df = return_team_shot_df(shot_df, opponents)

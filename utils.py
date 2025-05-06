@@ -40,7 +40,7 @@ tableau_colors = [
 
 import numpy as np
 
-def calculate_xg(x, y, team):
+def calculate_xg(x, y, team, bodyPart):
     """
     Calculate expected goals (xG) based on shot location and target goal.
     
@@ -71,11 +71,17 @@ def calculate_xg(x, y, team):
     angle = angle_right - angle_left
     
     # Trained coefficients (approximated from StatsBomb-like models)
-    intercept = -1.45
-    dist_coef = -0.08  # More negative = sharper distance penalty
-    angle_coef = 0.02   # Positive = higher angle improves xG
-    
+    intercept = -0.86
+    dist_coef = -0.11  # More negative = sharper distance penalty
+    angle_coef = 0.02  # Positive = higher angle improves xG
+    head_coef = -1.18
+    other_body_part_coef = -0.50
+
     logit = intercept + dist_coef * distance + angle_coef * np.degrees(angle)
+    if bodyPart == "Head":
+        logit += head_coef
+    elif bodyPart=="Other":
+        logit += other_body_part_coef
     xg = 1 / (1 + np.exp(-logit))
     
     return round(xg,3)
@@ -177,6 +183,7 @@ def create_interactive_shot_plot(df, team, color_type, show_heatmap=False):
     - Corrected penalty arcs showing only outside portion
     - Optional shot heatmap (when show_heatmap=True)
     """
+    df["startPosYM"] = -df["startPosYM"]
     # Create figure
     fig = make_subplots(rows=1, cols=1, specs=[[{"type": "scatter"}]])
 

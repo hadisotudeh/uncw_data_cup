@@ -72,7 +72,7 @@ def return_team_shot_df(shot_df, team):
     team_shot_df.loc[mask, "endPosXM"] = -team_shot_df.loc[mask, "endPosXM"]
     team_shot_df.loc[mask, "endPosYM"] = -team_shot_df.loc[mask, "endPosYM"]
 
-    team_shot_df["xg"] = team_shot_df.apply(lambda row: calculate_xg(row.startPosXM, row.startPosYM, team), axis=1)
+    team_shot_df["xg"] = team_shot_df.apply(lambda row: calculate_xg(row.startPosXM, row.startPosYM, team, row.bodyPartName), axis=1)
     return team_shot_df
 
 
@@ -174,7 +174,7 @@ if selected_view == "Case Explorer":
         opponent_df = return_team_shot_df(
             match_shot_df, opponents
         )
-        temp = " ".join(shot_df["match"].iloc[0].split(" ")[1:])
+        temp = " ".join(match_shot_df["match"].iloc[0].split(" ")[1:])
         teamA, teamB = temp.split(" vs ")
         team_options = [teamA.strip(), teamB.strip()]
     
@@ -254,7 +254,6 @@ if selected_view == "Case Explorer":
     st.sidebar.markdown("**Laws of the Game (#10):**")  
     st.sidebar.write("The team scoring the greater number of goals is the winner ...")
 
-    st.plotly_chart(fig, use_container_width=True)
 else:
     interest_team_df = return_team_shot_df(shot_df, team_of_interest)
     opponent_df = return_team_shot_df(shot_df, opponents)
